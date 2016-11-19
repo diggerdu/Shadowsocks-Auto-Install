@@ -138,18 +138,18 @@ pre_install(){
     echo "password = ${shadowsockspwd}"
     echo "---------------------------"
     echo
-    # Set shadowsocks config port
+    # Set shadowsocks ipv4 config port
     while true
     do
-    echo -e "Please input port for shadowsocks-python [1-65535]:"
-    read -p "(Default port: 8989):" shadowsocksport
-    [ -z "$shadowsocksport" ] && shadowsocksport="8989"
-    expr ${shadowsocksport} + 0 &>/dev/null
+    echo -e "Please input port for shadowsocks-python(ipv4) [1-65535]:"
+    read -p "(Default port: 8989):" shadowsocksport_ipv4
+    [ -z "$shadowsocksport_ipv4" ] && shadowsocksport_ipv4="8989"
+    expr ${shadowsocksport_ipv4} + 0 &>/dev/null
     if [ $? -eq 0 ]; then
-        if [ ${shadowsocksport} -ge 1 ] && [ ${shadowsocksport} -le 65535 ]; then
+        if [ ${shadowsocksport_ipv4} -ge 1 ] && [ ${shadowsocksport_ipv4} -le 65535 ]; then
             echo
             echo "---------------------------"
-            echo "port = ${shadowsocksport}"
+            echo "ipv4 listen port = ${shadowsocksport_ipv4}"
             echo "---------------------------"
             echo
             break
@@ -160,6 +160,30 @@ pre_install(){
         echo "Input error, please input correct number"
     fi
     done
+    
+    # Set shadowsocks ipv4 config port
+    while true
+    do
+    echo -e "Please input port for shadowsocks-python(ipv6) [1-65535]:"
+    read -p "(Default port: 8989):" shadowsocksport_ipv6
+    [ -z "$shadowsocksport_ipv6" ] && shadowsocksport_ipv6="8989"
+    expr ${shadowsocksport_ipv6} + 0 &>/dev/null
+    if [ $? -eq 0 ]; then
+        if [ ${shadowsocksport_ipv6} -ge 1 ] && [ ${shadowsocksport_ipv6} -le 65535 ] && [ ${shadowsocksport_ipv6} -ne ${shadowsocksport_ipv4} ]; then
+            echo
+            echo "---------------------------"
+            echo "ipv6 listen port = ${shadowsocksport_ipv6}"
+            echo "---------------------------"
+            echo
+            break
+        else
+            echo "Input error, please input correct number"
+        fi
+    else
+        echo "Input error, please input correct number"
+    fi
+    done
+    
     get_char(){
         SAVEDSTTY=`stty -g`
         stty -echo
@@ -201,7 +225,7 @@ config_shadowsocks(){
     cat > /etc/shadowsocks.json<<-EOF
 {
     "server":"0.0.0.0",
-    "server_port":${shadowsocksport},
+    "server_port":${shadowsocksport_ipv4},
     "local_address":"127.0.0.1",
     "local_port":1080,
     "password":"${shadowsockspwd}",
@@ -218,14 +242,14 @@ firewall_set(){
     if centosversion 6; then
         /etc/init.d/iptables status > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            iptables -L -n | grep -i ${shadowsocksport} > /dev/null 2>&1
+            iptables -L -n | grep -i ${shadowsocksport_ipv4} > /dev/null 2>&1
             if [ $? -ne 0 ]; then
-                iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${shadowsocksport} -j ACCEPT
-                iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${shadowsocksport} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${shadowsocksport_ipv4} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${shadowsocksport_ipv4} -j ACCEPT
                 /etc/init.d/iptables save
                 /etc/init.d/iptables restart
             else
-                echo "port ${shadowsocksport} has been set up."
+                echo "port ${shadowsocksport_ipv4} has been set up."
             fi
         else
             echo "WARNING: iptables looks like shutdown or not installed, please manually set it if necessary."
@@ -233,18 +257,18 @@ firewall_set(){
     elif centosversion 7; then
         systemctl status firewalld > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/tcp
-            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/udp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/tcp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/udp
             firewall-cmd --reload
         else
             echo "Firewalld looks like not running, try to start..."
             systemctl start firewalld
             if [ $? -eq 0 ]; then
-                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/tcp
-                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/udp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/tcp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/udp
                 firewall-cmd --reload
             else
-                echo "WARNING: Try to start firewalld failed. please enable port ${shadowsocksport} manually if necessary."
+                echo "WARNING: Try to start firewalld failed. please enable port ${shadowsocksport_ipv4} manually if necessary."
             fi
         fi
     fi
@@ -282,7 +306,7 @@ install(){
     echo
     echo "Congratulations, shadowsocks server install completed!"
     echo -e "Your Server IP: \033[41;37m $(get_ip) \033[0m"
-    echo -e "Your Server Port: \033[41;37m ${shadowsocksport} \033[0m"
+    echo -e "Your Server Port: \033[41;37m ${shadowsocksport_ipv4} \033[0m"
     echo -e "Your Password: \033[41;37m ${shadowsockspwd} \033[0m"
     echo -e "Your Local IP: \033[41;37m 127.0.0.1 \033[0m"
     echo -e "Your Local Port: \033[41;37m 1080 \033[0m"
@@ -469,18 +493,18 @@ pre_install(){
     while true
     do
     echo -e "Please input port for shadowsocks-python [1-65535]:"
-    read -p "(Default port: 8989):" shadowsocksport
-    [ -z "$shadowsocksport" ] && shadowsocksport="8989"
-    expr ${shadowsocksport} + 0 &>/dev/null
+    read -p "(Default port: 8989):" shadowsocksport_ipv4
+    [ -z "$shadowsocksport_ipv4" ] && shadowsocksport_ipv4="8989"
+    expr ${shadowsocksport_ipv4} + 0 &>/dev/null
     if [ $? -eq 0 ]; then
-        if [ ${shadowsocksport} -ge 1 ] && [ ${shadowsocksport} -le 65535 ]; then
+        if [ ${shadowsocksport_ipv4} -ge 1 ] && [ ${shadowsocksport_ipv4} -le 65535 ]; then
             echo
             echo "---------------------------"
-            echo "port = ${shadowsocksport}"
+            echo "port = ${shadowsocksport_ipv4}"
             echo "---------------------------"
             echo
             break
-        else
+        elseyunm
             echo "Input error, please input correct number"
         fi
     else
@@ -501,10 +525,10 @@ pre_install(){
     char=`get_char`
     #Install necessary dependencies
     if check_sys packageManager yum; then
-        yum install -y unzip openssl-devel gcc swig python python-devel python-setuptools autoconf libtool libevent automake make curl curl-devel zlib-devel perl perl-devel cpio expat-devel gettext-devel
+        yum install -y unzip openssl-devel gcc swig python python-devel python-setuptools autoconf libtool libevent automake make curl curl-devel zlib-devel perl perl-devel cpio expat-devel gettext-devel supervisor
     elif check_sys packageManager apt; then
         apt-get -y update
-        apt-get -y install python python-dev python-pip python-setuptools python-m2crypto curl wget unzip gcc swig automake make perl cpio build-essential
+        apt-get -y install python python-dev python-pip python-setuptools python-m2crypto curl wget unzip gcc swig automake make perl cpio build-essential supervisor
     fi
     cd ${cur_dir}
 }
@@ -525,18 +549,32 @@ download_files(){
 
 # Config shadowsocks
 config_shadowsocks(){
-    cat > /etc/shadowsocks.json<<-EOF
+    cat > /etc/shadowsocks_ipv4.json<<-EOF
 {
     "server":"0.0.0.0",
-    "server_port":${shadowsocksport},
+    "server_port":${shadowsocksport_ipv4},
     "local_address":"127.0.0.1",
     "local_port":1080,
     "password":"${shadowsockspwd}",
     "timeout":300,
-    "method":"aes-256-cfb",
+    "method":"rc4-md5",
     "fast_open":false
 }
 EOF
+
+    cat > /etc/shadowsocks_ipv6.json<<-EOF
+{
+    "server":"::1",
+    "server_port":${shadowsocksport_ipv6},
+    "local_address":"127.0.0.1",
+    "local_port":1080,
+    "password":"${shadowsockspwd}",
+    "timeout":300,
+    "method":"rc4-md5",
+    "fast_open":false
+}
+EOF
+
 }
 
 # Firewall set
@@ -545,14 +583,16 @@ firewall_set(){
     if centosversion 6; then
         /etc/init.d/iptables status > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            iptables -L -n | grep -i ${shadowsocksport} > /dev/null 2>&1
+            iptables -L -n | grep -i ${shadowsocksport_ipv4} > /dev/null 2>&1
             if [ $? -ne 0 ]; then
-                iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${shadowsocksport} -j ACCEPT
-                iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${shadowsocksport} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${shadowsocksport_ipv4} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${shadowsocksport_ipv4} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${shadowsocksport_ipv6} -j ACCEPT
+                iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${shadowsocksport_ipv6} -j ACCEPT
                 /etc/init.d/iptables save
                 /etc/init.d/iptables restart
             else
-                echo "port ${shadowsocksport} has been set up."
+                echo "port ${shadowsocksport_ipv4} has been set up."
             fi
         else
             echo "WARNING: iptables looks like shutdown or not installed, please manually set it if necessary."
@@ -560,18 +600,22 @@ firewall_set(){
     elif centosversion 7; then
         systemctl status firewalld > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/tcp
-            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/udp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/tcp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/udp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv6}/tcp
+            firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv6}/udp
             firewall-cmd --reload
         else
             echo "Firewalld looks like not running, try to start..."
             systemctl start firewalld
             if [ $? -eq 0 ]; then
-                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/tcp
-                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport}/udp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/tcp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv4}/udp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv6}/tcp
+                firewall-cmd --permanent --zone=public --add-port=${shadowsocksport_ipv6}/udp
                 firewall-cmd --reload
             else
-                echo "WARNING: Try to start firewalld failed. please enable port ${shadowsocksport} manually if necessary."
+                echo "WARNING: Try to start firewalld failed. please enable port ${shadowsocksport_ipv4} and ${shadowsocksport_ipv6} manually if necessary."
             fi
         fi
     fi
@@ -623,11 +667,11 @@ install(){
     echo
     echo "Congratulations, shadowsocks server install completed!"
     echo -e "Your Server IP: \033[41;37m $(get_ip) \033[0m"
-    echo -e "Your Server Port: \033[41;37m ${shadowsocksport} \033[0m"
+    echo -e "Your Server Port: \033[41;37m ${shadowsocksport_ipv4} \033[0m"
     echo -e "Your Password: \033[41;37m ${shadowsockspwd} \033[0m"
     echo -e "Your Local IP: \033[41;37m 127.0.0.1 \033[0m"
     echo -e "Your Local Port: \033[41;37m 1080 \033[0m"
-    echo -e "Your Encryption Method: \033[41;37m aes-256-cfb \033[0m"
+    echo -e "Your Encryption Method: \033[41;37m rc4-md5 \033[0m"
     echo
     echo "Welcome to visit:https://teddysun.com/342.html"
     echo "Enjoy it!"
